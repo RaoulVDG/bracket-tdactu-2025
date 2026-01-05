@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Bracket Playoffs NFL – Super Bowl & Export</title>
+  <title>Bracket Playoffs NFL – Stable Super Bowl</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; background: #0b1320; color: #fff; margin: 0; padding: 20px; }
@@ -23,11 +23,16 @@
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 const conferences = {
-  AFC: { seeds: { 1: 'Denver Broncos', 2: 'New England Patriots', 3: 'Jacksonville Jaguars', 4: 'Pittsburgh Steelers', 5: 'Houston Texans', 6: 'Buffalo Bills', 7: 'Los Angeles Chargers' }},
-  NFC: { seeds: { 1: 'Seattle Seahawks', 2: 'Chicago Bears', 3: 'Philadelphia Eagles', 4: 'Carolina Panthers', 5: 'Los Angeles Rams', 6: 'San Francisco 49ers', 7: 'Green Bay Packers' }}
+  AFC: { seeds: { 1:'Denver Broncos',2:'New England Patriots',3:'Jacksonville Jaguars',4:'Pittsburgh Steelers',5:'Houston Texans',6:'Buffalo Bills',7:'Los Angeles Chargers' }},
+  NFC: { seeds: { 1:'Seattle Seahawks',2:'Chicago Bears',3:'Philadelphia Eagles',4:'Carolina Panthers',5:'Los Angeles Rams',6:'San Francisco 49ers',7:'Green Bay Packers' }}
 };
 
-const state = { AFC: { wild: {}, divisional: {}, final: null }, NFC: { wild: {}, divisional: {}, final: null }, superBowl: null };
+const state = {
+  AFC:{ wild:{}, divisional:{}, final:null },
+  NFC:{ wild:{}, divisional:{}, final:null },
+  superBowl:null
+};
+
 const app = document.getElementById('app');
 
 function render(){
@@ -37,36 +42,46 @@ function render(){
 }
 
 function renderConference(conf){
-  const confDiv=document.createElement('div'); confDiv.className='conference';
-  confDiv.appendChild(roundTitle(conf));
-  const seeds = conferences[conf].seeds;
+  const divConf=document.createElement('div'); divConf.className='conference';
+  divConf.appendChild(roundTitle(conf));
 
-  confDiv.appendChild(roundTitle('Wild Card'));
-  [[2,7],[3,6],[4,5]].forEach(([a,b],idx)=>confDiv.appendChild(matchDiv(conf,'wild',idx,a,b)));
+  // Wild Card
+  divConf.appendChild(roundTitle('Wild Card'));
+  [[2,7],[3,6],[4,5]].forEach(([a,b],idx)=> divConf.appendChild(matchDiv(conf,'wild',idx,a,b)));
 
-  confDiv.appendChild(roundTitle('Divisional'));
+  // Divisional
+  divConf.appendChild(roundTitle('Divisional'));
   const divTeams = getDivisionalTeams(conf);
   if(divTeams.length===4){
-    confDiv.appendChild(matchFromTeams(conf,'divisional',0,divTeams[0],divTeams[3]));
-    confDiv.appendChild(matchFromTeams(conf,'divisional',1,divTeams[1],divTeams[2]));
-  } else confDiv.appendChild(info('En attente des résultats du Wild Card'));
+    divConf.appendChild(matchFromTeams(conf,'divisional',0,divTeams[0],divTeams[3]));
+    divConf.appendChild(matchFromTeams(conf,'divisional',1,divTeams[1],divTeams[2]));
+  } else divConf.appendChild(info('En attente des résultats du Wild Card'));
 
-  confDiv.appendChild(roundTitle('Finale de conférence'));
+  // Finale conférence
+  divConf.appendChild(roundTitle('Finale de conférence'));
   const finalTeams = getFinalTeams(conf);
   if(finalTeams){
-    confDiv.appendChild(matchFromTeams(conf,'final',0,finalTeams[0],finalTeams[1]));
-  } else confDiv.appendChild(info('En attente des résultats du Divisional'));
+    divConf.appendChild(matchFromTeams(conf,'final',0,finalTeams[0],finalTeams[1]));
+  } else divConf.appendChild(info('En attente des résultats du Divisional'));
 
-  app.appendChild(confDiv);
+  app.appendChild(divConf);
 }
 
 function renderSuperBowl(){
-  const afcWinner = state.AFC.final; 
-  const nfcWinner = state.NFC.final;
-  const sbDiv = document.createElement('div'); sbDiv.className='conference';
+  const afcWinner=state.AFC.final;
+  const nfcWinner=state.NFC.final;
+  const sbDiv=document.createElement('div'); sbDiv.className='conference';
   sbDiv.appendChild(roundTitle('🏆 Super Bowl'));
   if(afcWinner && nfcWinner){
-    sbDiv.appendChild(matchFromTeams('superBowl','superBowl',0,afcWinner,nfcWinner,true));
+    const match=document.createElement('div'); match.className='match';
+    [afcWinner,nfcWinner].forEach(team=>{
+      const t=document.createElement('div'); t.className='team';
+      t.innerHTML=`<span class="seed">#${team.seed}</span>${team.name}` + (state.superBowl?.name===team.name ? ' 🏆 Champions 2025' : '');
+      t.onclick=()=>{ state.superBowl=team; render(); };
+      if(state.superBowl?.name===team.name) t.classList.add('selected');
+      match.appendChild(t);
+    });
+    sbDiv.appendChild(match);
   } else sbDiv.appendChild(info('En attente des vainqueurs des conférences'));
   app.appendChild(sbDiv);
 }
@@ -78,30 +93,16 @@ function matchDiv(conf,round,idx,seedA,seedB){
   return matchFromTeams(conf,round,idx,{seed:seedA,name:conferences[conf].seeds[seedA]},{seed:seedB,name:conferences[conf].seeds[seedB]});
 }
 
-function matchFromTeams(conf,round,idx,teamA,teamB,isSuperBowl=false){
+function matchFromTeams(conf,round,idx,teamA,teamB){
   const div=document.createElement('div'); div.className='match';
   [teamA,teamB].forEach(team=>{
     const t=document.createElement('div'); t.className='team';
-    let label=`<span class="seed">#${team.seed}</span>${team.name}`;
-    if(isSuperBowl && state.superBowl?.name===team.name) label += ' 🏆 Champions 2025';
-    t.innerHTML=label;
+    t.innerHTML=`<span class="seed">#${team.seed}</span>${team.name}`;
     if(state[conf][round][idx]?.name===team.name) t.classList.add('selected');
-    t.onclick=()=>{
-      state[conf][round][idx]=team;
-      if(round==='final') state.superBowl=team;
-      render();
-    };
+    t.onclick=()=>{ state[conf][round][idx]=team; if(round==='final') state[conf].final=team; render(); };
     div.appendChild(t);
   });
   return div;
-}
-
-function select(conf,round,idx,team){
-  state[conf][round][idx]=team;
-  if(round==='wild'){ state[conf].divisional={}; state[conf].final=null; state.superBowl=null; }
-  if(round==='divisional'){ state[conf].final=null; state.superBowl=null; }
-  if(round==='final'){ state.superBowl=team; }
-  render();
 }
 
 function getDivisionalTeams(conf){
@@ -121,12 +122,12 @@ function getFinalTeams(conf){
 
 render();
 
-// Export visuel
+// Export PNG
 document.getElementById('exportBtn').onclick=()=>{
   html2canvas(app).then(canvas=>{
     const link=document.createElement('a');
     link.download='bracket_NFL_2025.png';
-    link.href=canvas.toDataURL();
+    link.href=canvas.toDataURL('image/png');
     link.click();
   });
 };
